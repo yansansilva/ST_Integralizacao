@@ -19,8 +19,10 @@ def carregar_dados(up):
 		df.insert(0, 'TEMPO', pd.to_datetime(juntar, dayfirst=True), True)
 
 		dados_df = dados_df.append(df)
-
-	return dados_df
+	
+	dados_df_filtrados = dados_df.drop(['DATE','TIME'], axis =1)
+	
+	return dados_df_filtrados
 
 @st.cache
 def converter_df_csv(df):
@@ -47,7 +49,7 @@ for file in uploaded_files:
 	if file.name not in str(up):
 		up.append(file)
 
-dados = carregar_dados(up).drop(['DATE','TIME'], axis =1)
+dados = carregar_dados(up)
 
 if dados.size != 0:
 	filtro = st.sidebar.multiselect('Selecione as colunas de dados:', dados.columns)
