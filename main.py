@@ -18,7 +18,7 @@ def carregar_dados(up):
 		juntar = df['DATE'] + ' ' + df['TIME']
 		df.insert(0, 'TEMPO', pd.to_datetime(juntar, dayfirst=True), True)
 
-		dados_df = dados_df.append(df.drop(['DATE','TIME'], axis =1))
+		dados_df = dados_df.append(df)
 
 	return dados_df
 
@@ -47,7 +47,7 @@ for file in uploaded_files:
 	if file.name not in str(up):
 		up.append(file)
 
-dados = carregar_dados(up)
+dados = carregar_dados(up).drop(['DATE','TIME'], axis =1)
 
 if dados.size != 0:
 	filtro = st.sidebar.multiselect('Selecione as colunas de dados:', dados.columns)
