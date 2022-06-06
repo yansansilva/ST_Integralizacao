@@ -18,7 +18,7 @@ def carregar_dados(up):
 		juntar = df['DATE'] + ' ' + df['TIME']
 		df.insert(0, 'TEMPO', pd.to_datetime(juntar, dayfirst=True), True)
 
-		dados_df = dados_df.append(df)
+		dados_df = dados_df.append(df.drop(['DATE','TIME'], axis =1))
 
 	return dados_df
 
