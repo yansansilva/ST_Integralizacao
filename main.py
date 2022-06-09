@@ -50,9 +50,10 @@ for file in uploaded_files:
 dados = carregar_dados(up)
 
 if dados.size != 0:
-	filtro = st.sidebar.multiselect('Selecione as colunas de dados:', dados.columns)
+	filtro = st.sidebar.multiselect('Selecione as colunas de dados:', dados.drop(['TEMPO'], axis =1).columns)
 
 	if filtro != []:
+		filtro.insert(0, 'TEMPO')
 		dados_filtrados = dados.filter(items=filtro).sort_values(by=['TEMPO'], ignore_index=True)
 		mostrar_dataset = st.checkbox('Mostrar Dataset')
 		if mostrar_dataset == True:
