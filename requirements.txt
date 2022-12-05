@@ -3,3 +3,4 @@ pandas==1.4.0
 pip==22.1.2
 streamlit==1.9.2
 xlsxwriter==3.0.3
+plotly==5.9.0
