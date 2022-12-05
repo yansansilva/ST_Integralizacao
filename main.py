@@ -170,13 +170,3 @@ with tabs[2]:
 	st.write(f'''
 	    _________________________________________________________________________
 	        ''')
-
-		st.subheader("Salvar Resultados")
-
-		nomearquivo = st.text_input('Digite um nome para o arquivo:', 'Integralização')
-
-		csv = converter_df_csv(dados_integralizados)
-		st.download_button(label="Download em CSV", data=csv, file_name=nomearquivo+'.csv', mime='text/csv')
-
-		excel = converter_df_excel(dados_integralizados)
-		st.download_button(label="Download em Excel", data=excel, file_name=nomearquivo+'.xlsx', mime='application/vnd.ms-excel')
