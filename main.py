@@ -6,12 +6,12 @@ import xlsxwriter
 import openpyxl
 
 st.set_page_config(
-    page_title="GEDAE Aplicativos - Integralização dos Dados",
+    page_title="Integralização de Dados",
     page_icon="👋",
 	layout="wide"
 )
 
-st.title("Integralização dos Dados")
+st.title("Integralização de Dados")
 
 @st.cache
 def carregar_dados(up):
