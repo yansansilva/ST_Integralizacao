@@ -68,7 +68,7 @@ with tabs[0]:
 		if file.name not in str(up):
 			up.append(file)
 
-	dados = carregar_dados(up, 'integralizar')
+	dados = carregar_dados(up)
 
 	st.write(f'''
 		    _________________________________________________________________________
