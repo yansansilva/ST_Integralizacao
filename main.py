@@ -4,6 +4,7 @@ from io import BytesIO
 import plotly.graph_objs as go
 import xlsxwriter
 import openpyxl
+from scipy.integrate import trapz
 
 st.set_page_config(
     page_title="Integralização de Dados",
@@ -107,10 +108,19 @@ with tabs[1]:
 			integralizacao = periodo+unidade_de_periodo
 			novo_dados_integralizacao = dados_filtrados.groupby('TEMPO').mean()
 			excluir_dados_ausentes = st.checkbox("Excluir todas as linhas com dados ausentes", value=True)
+			funcao = st.selectbox('Modo: ', ['Média','Integralização'])
 			if excluir_dados_ausentes:
-				dados_integralizados = novo_dados_integralizacao.resample(integralizacao).mean().dropna().reset_index()
+				if funcao == 'Média':
+					dados_integralizados = novo_dados_integralizacao.resample(integralizacao).mean().dropna().reset_index()
+				else:
+					dados_integralizados = novo_dados_integralizacao.resample(integralizacao).apply(integrate_trapezoidal).dropna().reset_index()
+				#dados_integralizados = novo_dados_integralizacao.resample(integralizacao).mean().dropna().reset_index()
 			else:
-				dados_integralizados = novo_dados_integralizacao.resample(integralizacao).mean().reset_index()
+				if funcao == 'Média':
+					dados_integralizados = novo_dados_integralizacao.resample(integralizacao).mean().reset_index()
+				else:
+					dados_integralizados = novo_dados_integralizacao.resample(integralizacao).apply(integrate_trapezoidal).reset_index()
+				#dados_integralizados = novo_dados_integralizacao.resample(integralizacao).mean().reset_index()
 
 			dados_integralizados.insert(1, 'DATE', dados_integralizados['TEMPO'].dt.date)
 			dados_integralizados.insert(2, 'TIME', dados_integralizados['TEMPO'].dt.time.astype('str'))
