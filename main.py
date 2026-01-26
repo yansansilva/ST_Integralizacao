@@ -4,17 +4,11 @@ import plotly.graph_objs as go
 from io import BytesIO
 from scipy.integrate import trapz
 
-# --- FUNÇÕES AUXILIARES DE INTERFACE ---
-
-def formatar_colunas(df):
-    """Retorna lista de colunas para facilitar a seleção."""
-    return df.columns.tolist()
-
 # --- FUNÇÕES DE PROCESSAMENTO (BACKEND) ---
 
 @st.cache_data
 def carregar_dados_brutos(uploaded_files):
-    """Leitura inicial sem processamento para identificar estrutura."""
+    """Leitura inicial para identificar estrutura."""
     if not uploaded_files:
         return pd.DataFrame()
     
@@ -30,121 +24,123 @@ def carregar_dados_brutos(uploaded_files):
     return pd.concat(lista_dfs).reset_index(drop=True) if lista_dfs else pd.DataFrame()
 
 def processar_datetime_custom(df, colunas_tempo):
-    """
-    Mescla uma ou mais colunas selecionadas pelo usuário em uma única 
-    coluna 'TEMPO' do tipo datetime.
-    """
+    """Mescla colunas de tempo selecionadas pelo usuário."""
     df = df.copy()
     if not colunas_tempo:
         return df
-
     try:
         if len(colunas_tempo) > 1:
-            # Mescla múltiplas colunas (ex: Data + Hora) em uma string única
             string_tempo = df[colunas_tempo].astype(str).agg(' '.join, axis=1)
             df.insert(0, 'TEMPO', pd.to_datetime(string_tempo, dayfirst=True))
         else:
-            # Apenas uma coluna de referência
             df.insert(0, 'TEMPO', pd.to_datetime(df[colunas_tempo[0]].astype(str), dayfirst=True))
-        
-        # Remove as colunas originais que foram mescladas para evitar redundância
         return df.drop(columns=colunas_tempo)
     except Exception as e:
-        st.error(f"Erro ao converter colunas de tempo: {e}")
+        st.error(f"Erro na conversão de tempo: {e}")
         return pd.DataFrame()
+
+def preparar_excel(df):
+    """Gera o arquivo Excel em memória para download."""
+    output = BytesIO()
+    with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
+        df.to_excel(writer, index=False, sheet_name='Dados_Integralizados')
+    return output.getvalue()
 
 # --- INTERFACE PRINCIPAL ---
 
 def main():
-    st.set_page_config(page_title="Integralização Modular", layout="wide")
-    st.title("📊 Processador de Dados Temporais")
+    st.set_page_config(page_title="Integralização de Dados", layout="wide")
+    st.title("📊 Processador de Dados")
 
-    tabs = st.tabs(['📁 1. Importação e Tempo', '⚙️ 2. Filtros e Cálculo', '📈 3. Visualização'])
+    tabs = st.tabs(['📁 1. Configurar Tempo', '⚙️ 2. Processar', '📈 3. Resultados'])
 
-    # --- TAB 1: ESTRUTURA E TEMPO ---
+    # --- TAB 1: CARREGAMENTO E TEMPO ---
     with tabs[0]:
         uploaded_files = st.file_uploader("Upload de Arquivos", type=["xlsx", "xls", "csv"], accept_multiple_files=True)
         
         if uploaded_files:
-            dados_brutos = carregar_dados_brutos(uploaded_files)
-            todas_colunas = formatar_colunas(dados_brutos)
+            df_bruto = carregar_dados_brutos(uploaded_files)
+            todas_colunas = df_bruto.columns.tolist()
             
-            st.subheader("Configuração de Tempo")
-            col_t1, col_t2 = st.columns([2, 1])
-            
-            with col_t1:
-                colunas_tempo = st.multiselect(
-                    "Selecione a(s) coluna(s) de referência temporal (serão mescladas):",
-                    options=todas_colunas,
-                    help="Selecione 'Data' e 'Hora' se estiverem separadas."
-                )
+            st.subheader("Referência Temporal")
+            colunas_tempo = st.multiselect(
+                "Selecione a(s) coluna(s) que compõem a data/hora:",
+                options=todas_colunas,
+                help="Ex: Selecione 'Data' e 'Hora' se estiverem separadas em colunas diferentes."
+            )
             
             if colunas_tempo:
-                dados_com_tempo = processar_datetime_custom(dados_brutos, colunas_tempo)
-                if not dados_com_tempo.empty:
-                    st.success("Coluna 'TEMPO' gerada com sucesso.")
-                    st.dataframe(dados_com_tempo.head(5))
+                dados_prontos = processar_datetime_custom(df_bruto, colunas_tempo)
+                if not dados_prontos.empty:
+                    st.success("Tempo configurado com sucesso!")
+                    st.dataframe(dados_prontos.head(5))
             else:
-                st.info("Aguardando seleção das colunas de tempo...")
-                dados_com_tempo = pd.DataFrame()
+                st.info("Aguardando definição das colunas de tempo.")
+                dados_prontos = pd.DataFrame()
         else:
-            dados_com_tempo = pd.DataFrame()
+            dados_prontos = pd.DataFrame()
 
-    # --- TAB 2: SELEÇÃO DE DADOS E CÁLCULO ---
-    if not dados_com_tempo.empty:
+    # --- TAB 2: SELEÇÃO E CÁLCULO ---
+    if not dados_prontos.empty:
         with tabs[1]:
-            st.subheader("Seleção de Variáveis e Processamento")
+            st.subheader("Configurações de Integralização")
             col_v1, col_v2 = st.columns(2)
             
-            colunas_analise = [c for c in dados_com_tempo.columns if c != 'TEMPO']
+            colunas_analise = [c for c in dados_prontos.columns if c != 'TEMPO']
             
             with col_v1:
-                selecionadas = st.multiselect("Variáveis para integralizar:", options=colunas_analise, default=colunas_analise[:1])
-                metodo = st.selectbox('Modo:', ['Média', 'Integralização'])
+                selecionadas = st.multiselect("Variáveis (Corrente, Tensão, Potência, etc):", options=colunas_analise)
+                metodo = st.selectbox('Modo de cálculo:', ['Média', 'Integralização (Trapezoidal)'])
             
             with col_v2:
-                periodo = st.number_input('Intervalo:', min_value=1, value=15)
-                unidade = st.radio('Unidade:', ['s', 'min', 'h'], horizontal=True)
-                excluir_nans = st.checkbox("Remover linhas vazias", value=True)
+                freq_val = st.number_input('Intervalo numérico:', min_value=1, value=15)
+                unidade = st.radio('Unidade de tempo:', ['s', 'min', 'h'], horizontal=True)
+                excluir = st.checkbox("Remover linhas vazias (NaN)", value=True)
 
             if selecionadas:
-                freq = f"{periodo}{unidade}"
-                # Prepara DataFrame apenas com o necessário
-                df_aux = dados_com_tempo[['TEMPO'] + selecionadas].set_index('TEMPO').sort_index()
+                freq_str = f"{freq_val}{unidade}"
+                df_calc = dados_prontos[['TEMPO'] + selecionadas].set_index('TEMPO').sort_index()
+                resampler = df_calc.resample(freq_str)
                 
-                resampler = df_aux.resample(freq)
-                
-                if metodo == 'Média':
+                if "Média" in metodo:
                     df_res = resampler.mean()
                 else:
-                    # Aplica a integral trapezoidal coluna por coluna
                     df_res = resampler.apply(lambda x: trapz(x) if len(x) > 1 else x.mean())
 
-                if excluir_nans:
-                    df_res = df_res.dropna()
-                
+                if excluir: df_res = df_res.dropna()
                 df_res = df_res.reset_index()
-                st.write("### Resultado Processado")
-                st.dataframe(df_res)
+
+                st.divider()
+                st.subheader("📥 Download dos Resultados")
+                nome_base = st.text_input("Nome do arquivo (sem extensão):", "resultado_processado")
                 
-                # Botões de Download
-                c1, c2 = st.columns(2)
-                c1.download_button("Exportar CSV", df_res.to_csv(index=False).encode('utf-8'), "resultado.csv")
-            else:
-                st.warning("Selecione ao menos uma variável de análise.")
+                c_csv, c_xlsx = st.columns(2)
+                
+                # Download CSV
+                c_csv.download_button(
+                    label="Baixar em CSV",
+                    data=df_res.to_csv(index=False).encode('utf-8'),
+                    file_name=f"{nome_base}.csv",
+                    mime='text/csv'
+                )
+                
+                # Download XLSX
+                c_xlsx.download_button(
+                    label="Baixar em Excel (XLSX)",
+                    data=preparar_excel(df_res),
+                    file_name=f"{nome_base}.xlsx",
+                    mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+                )
+
+                st.dataframe(df_res)
 
         # --- TAB 3: VISUALIZAÇÃO ---
         with tabs[2]:
             if selecionadas:
-                var_plot = st.selectbox("Escolha a variável para o gráfico:", selecionadas)
-                
+                escolha = st.selectbox("Selecione a variável para o gráfico:", selecionadas)
                 fig = go.Figure()
-                fig.add_trace(go.Scatter(x=dados_com_tempo['TEMPO'], y=dados_com_tempo[var_plot], 
-                                         name='Bruto', line=dict(color='silver', width=1)))
-                fig.add_trace(go.Scatter(x=df_res['TEMPO'], y=df_res[var_plot], 
-                                         name='Processado', line=dict(color='orange', width=2)))
-                
-                fig.update_layout(title=f"Análise de {var_plot}", template="plotly_white")
+                fig.add_trace(go.Scatter(x=dados_prontos['TEMPO'], y=dados_prontos[escolha], name='Bruto', line=dict(color='lightgrey')))
+                fig.add_trace(go.Scatter(x=df_res['TEMPO'], y=df_res[escolha], name='Processado', line=dict(color='blue')))
                 st.plotly_chart(fig, use_container_width=True)
 
 if __name__ == "__main__":
